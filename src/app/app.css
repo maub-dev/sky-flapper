@@ -1,5 +1,5 @@
 .stage {
-  min-height: 100dvh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -9,10 +9,19 @@
   box-sizing: border-box;
 }
 
+/* Takes all space left by the footer; the component sizes .frame to fit inside it. */
+.fit {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .frame {
   position: relative;
-  width: min(calc(100vw - 24px), calc((100dvh - 60px) * 0.5625), 506px);
-  aspect-ratio: 9 / 16;
+  flex: none;
   border-radius: 18px;
   overflow: hidden;
   box-shadow: 0 20px 60px rgb(0 0 0 / 45%);
@@ -63,8 +72,16 @@ canvas {
   padding-top: 9%;
 }
 
+/* Anchored to the bottom so it stays between the bird and the ground at any frame height. */
+.start-info {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 27%;
+}
+
 .title {
-  margin: 0 0 52%;
+  margin: 0;
   font-size: clamp(38px, 7.5vh, 68px);
   line-height: 0.95;
   font-weight: 900;
@@ -191,11 +208,7 @@ kbd {
     padding: 0;
     gap: 0;
   }
-  .stage {
-    height: 100dvh;
-  }
   .frame {
-    width: min(100vw, calc(100dvh * 0.5625));
     border-radius: 0;
   }
   .footer {

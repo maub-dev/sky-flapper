@@ -8,13 +8,14 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { GameEngine, GameState, WORLD_H, WORLD_W } from './game/engine';
+import { GameEngine, GameState, WORLD_H_MAX, WORLD_H_MIN, WORLD_W } from './game/engine';
 import { Renderer } from './game/renderer';
 import { Sound } from './game/sound';
 
 const BEST_KEY = 'sky-flapper:best';
 const MUTE_KEY = 'sky-flapper:muted';
 const FIXED_DT = 1 / 120;
+const MAX_FRAME_W = 506; // px; keeps the game from getting huge on big screens
 
 @Component({
   selector: 'app-root',
@@ -27,7 +28,8 @@ const FIXED_DT = 1 / 120;
   },
 })
 export class App {
-
+  protected readonly frameW = signal(0);
+  protected readonly frameH = signal(0);
   protected readonly state = signal<GameState>('ready');
   protected readonly score = signal(0);
   protected readonly best = signal(readNumber(BEST_KEY));
@@ -36,6 +38,9 @@ export class App {
   protected readonly paused = signal(false);
 
   private readonly canvas = viewChild.required<ElementRef<HTMLCanvasElement>>('canvas');
+  private readonly fit = viewChild.required<ElementRef<HTMLElement>>('fit');
+  private ctx?: CanvasRenderingContext2D;
+  private resizeObserver?: ResizeObserver;
   private readonly engine = new GameEngine();
   private readonly sound = new Sound();
   private renderer?: Renderer;
@@ -46,7 +51,10 @@ export class App {
   constructor() {
     this.sound.muted = this.muted();
     afterNextRender(() => this.start());
-    inject(DestroyRef).onDestroy(() => cancelAnimationFrame(this.rafId));
+    inject(DestroyRef).onDestroy(() => {
+      cancelAnimationFrame(this.rafId);
+      this.resizeObserver?.disconnect();
+    });
   }
 
   protected onPointer(ev: PointerEvent): void {
@@ -92,15 +100,38 @@ export class App {
   }
 
   private start(): void {
+    const ctx = this.canvas().nativeElement.getContext('2d');
+    if (!ctx) return;
+    this.ctx = ctx;
+    this.renderer = new Renderer(ctx);
+    const fit = this.fit().nativeElement;
+    this.resizeObserver = new ResizeObserver(() => this.layout(fit.clientWidth, fit.clientHeight));
+    this.resizeObserver.observe(fit);
+    this.layout(fit.clientWidth, fit.clientHeight);
+    this.rafId = requestAnimationFrame(this.frame);
+  }
+
+  /**
+   * Size the frame to the available space. The world is always WORLD_W wide; its height
+   * stretches between 9:16 and 9:20 so tall phones fill the screen (extra height is sky).
+   */
+  private layout(availW: number, availH: number): void {
+    if (!this.ctx || availW <= 0 || availH <= 0) return;
+    const minRatio = WORLD_H_MIN / WORLD_W;
+    const maxRatio = WORLD_H_MAX / WORLD_W;
+    const ratio = Math.min(maxRatio, Math.max(minRatio, availH / availW));
+    const w = Math.floor(Math.min(availW, availH / ratio, MAX_FRAME_W));
+    this.engine.resize(WORLD_W * ratio);
+    const worldH = this.engine.worldH;
+    this.frameW.set(w);
+    this.frameH.set(Math.floor((w * worldH) / WORLD_W));
+
     const canvas = this.canvas().nativeElement;
     const dpr = Math.min(window.devicePixelRatio || 1, 3);
-    canvas.width = WORLD_W * dpr;
-    canvas.height = WORLD_H * dpr;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    ctx.scale(dpr, dpr);
-    this.renderer = new Renderer(ctx);
-    this.rafId = requestAnimationFrame(this.frame);
+    canvas.width = Math.round(WORLD_W * dpr);
+    canvas.height = Math.round(worldH * dpr);
+    this.ctx.setTransform(canvas.width / WORLD_W, 0, 0, canvas.height / worldH, 0, 0);
+    this.renderer?.draw(this.engine);
   }
 
   private readonly frame = (ts: number): void => {

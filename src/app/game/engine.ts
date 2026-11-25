@@ -1,9 +1,10 @@
 /** Pure game simulation — no DOM, no rendering. */
 
 export const WORLD_W = 360;
-export const WORLD_H = 640;
+/** World height adapts to the screen shape: 640 (9:16) up to 800 (9:20). */
+export const WORLD_H_MIN = 640;
+export const WORLD_H_MAX = 800;
 export const GROUND_H = 96;
-export const PLAY_H = WORLD_H - GROUND_H;
 
 const GRAVITY = 1500; // px/s²
 const FLAP_VELOCITY = -440; // px/s
@@ -18,6 +19,7 @@ const GAP_MIN = 128;
 const SPEED_START = 150;
 const SPEED_MAX = 220;
 const EDGE_MARGIN = 60; // min distance from gap to top / ground
+const RESTART_DELAY = 0.7; // s after a crash before a press restarts (avoids accidental restarts)
 
 export type GameState = 'ready' | 'playing' | 'over';
 
@@ -43,6 +45,8 @@ export interface StepEvents {
 }
 
 export class GameEngine {
+  /** Current world height; extra height above 640 becomes sky. */
+  worldH = WORLD_H_MIN;
   state: GameState = 'ready';
   score = 0;
   bird: Bird = this.freshBird();
@@ -55,6 +59,17 @@ export class GameEngine {
   overTime = 0;
 
   private flapQueued = false;
+
+  /** Height of the playable area (everything above the ground). */
+  get playH(): number {
+    return this.worldH - GROUND_H;
+  }
+
+  /** Adapt the world to a new height (e.g. after a resize or rotation). */
+  resize(height: number): void {
+    this.worldH = clamp(Math.round(height), WORLD_H_MIN, WORLD_H_MAX);
+    this.bird.y = Math.min(this.bird.y, this.playH - BIRD_R);
+  }
 
   get speed(): number {
     return Math.min(SPEED_MAX, SPEED_START + this.score * 3);
@@ -73,21 +88,23 @@ export class GameEngine {
     this.flapQueued = false;
   }
 
-  /** Player input. Returns true if the input restarted the game. */
+  /**
+   * Player input. Returns true if the input restarted the game.
+   * After a crash (and a short guard delay) a press restarts straight into play.
+   */
   input(): boolean {
+    let restarted = false;
     if (this.state === 'over') {
-      if (this.overTime > 0.6) {
-        this.reset();
-        return true;
-      }
-      return false;
+      if (this.overTime < RESTART_DELAY) return false;
+      this.reset();
+      restarted = true;
     }
     if (this.state === 'ready') {
       this.state = 'playing';
       this.spawnPipe(WORLD_W + 120);
     }
     this.flapQueued = true;
-    return false;
+    return restarted;
   }
 
   step(dt: number): StepEvents {
@@ -98,7 +115,7 @@ export class GameEngine {
 
     if (this.state === 'ready') {
       this.scroll += SPEED_START * dt;
-      b.y = PLAY_H * 0.45 + Math.sin(this.time * 3) * 8;
+      b.y = this.playH * 0.45 + Math.sin(this.time * 3) * 8;
       b.angle = 0;
       return ev;
     }
@@ -106,9 +123,9 @@ export class GameEngine {
     if (this.state === 'over') {
       this.overTime += dt;
       // Let the bird tumble to the ground.
-      if (b.y < PLAY_H - BIRD_R) {
+      if (b.y < this.playH - BIRD_R) {
         b.vy = Math.min(MAX_FALL, b.vy + GRAVITY * dt);
-        b.y = Math.min(PLAY_H - BIRD_R, b.y + b.vy * dt);
+        b.y = Math.min(this.playH - BIRD_R, b.y + b.vy * dt);
         b.angle = Math.min(Math.PI / 2, b.angle + dt * 8);
       }
       return ev;
@@ -142,8 +159,8 @@ export class GameEngine {
     }
 
     if (b.y - BIRD_R < -40) b.y = BIRD_R - 40; // ceiling clamp (allow a bit offscreen)
-    if (b.y + BIRD_R >= PLAY_H || this.hitsPipe()) {
-      b.y = Math.min(b.y, PLAY_H - BIRD_R);
+    if (b.y + BIRD_R >= this.playH || this.hitsPipe()) {
+      b.y = Math.min(b.y, this.playH - BIRD_R);
       this.state = 'over';
       this.overTime = 0;
       b.vy = Math.min(b.vy, 0);
@@ -160,7 +177,7 @@ export class GameEngine {
       const bottom = p.gapY + p.gap / 2;
       if (
         circleRect(x, y, r, p.x, -1000, PIPE_W, top + 1000) ||
-        circleRect(x, y, r, p.x, bottom, PIPE_W, PLAY_H - bottom)
+        circleRect(x, y, r, p.x, bottom, PIPE_W, this.playH - bottom)
       ) {
         return true;
       }
@@ -171,7 +188,7 @@ export class GameEngine {
   private spawnPipe(x: number): void {
     const gap = this.gap;
     const minY = EDGE_MARGIN + gap / 2;
-    const maxY = PLAY_H - EDGE_MARGIN - gap / 2;
+    const maxY = this.playH - EDGE_MARGIN - gap / 2;
     const prev = this.pipes[this.pipes.length - 1];
     // Keep consecutive gaps reachable.
     let gapY = minY + Math.random() * (maxY - minY);
@@ -180,7 +197,7 @@ export class GameEngine {
   }
 
   private freshBird(): Bird {
-    return { x: BIRD_X, y: PLAY_H * 0.45, vy: 0, angle: 0, wingPhase: 0 };
+    return { x: BIRD_X, y: this.playH * 0.45, vy: 0, angle: 0, wingPhase: 0 };
   }
 }
 

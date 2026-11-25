@@ -1,51 +1,79 @@
 <main class="stage">
-  <div class="frame" (pointerdown)="onPointer($event)">
-    <canvas #canvas aria-label="Sky Flapper game" role="img"></canvas>
+  <div class="fit" #fit>
+    <div
+      class="frame"
+      [style.width.px]="frameW()"
+      [style.height.px]="frameH()"
+      (pointerdown)="onPointer($event)"
+    >
+      <canvas #canvas aria-label="Sky Flapper game" role="img"></canvas>
 
-    @if (state() === 'playing') {
-      <div class="score" aria-live="polite">{{ score() }}</div>
-      <button class="icon left" type="button" aria-label="Pause" (pointerdown)="$event.stopPropagation()" (click)="togglePause()">
-        @if (paused()) { ▶ } @else { ❚❚ }
-      </button>
-    }
-
-    <button class="icon right" type="button" [attr.aria-label]="muted() ? 'Unmute' : 'Mute'"
-      (pointerdown)="$event.stopPropagation()" (click)="toggleMute($event)">
-      {{ muted() ? '🔇' : '🔊' }}
-    </button>
-
-    @if (state() === 'ready') {
-      <div class="overlay top">
-        <h1 class="title">Sky<br />Flapper</h1>
-        <p class="hint">Tap, click or press <kbd>Space</kbd> to flap</p>
-        @if (best() > 0) {
-          <p class="best">Best: {{ best() }}</p>
-        }
-      </div>
-    }
-
-    @if (paused()) {
-      <div class="overlay dim">
-        <h2 class="panel-title">Paused</h2>
-        <p class="hint">Tap or press <kbd>Space</kbd> to resume</p>
-      </div>
-    }
-
-    @if (state() === 'over') {
-      <div class="overlay">
-        <div class="panel">
-          <h2 class="panel-title">Game Over</h2>
-          <div class="stats">
-            <div><span>Score</span><strong>{{ score() }}</strong></div>
-            <div><span>Best</span><strong>{{ best() }}</strong></div>
-          </div>
-          @if (newBest()) {
-            <p class="badge">New best!</p>
+      @if (state() === 'playing') {
+        <div class="score" aria-live="polite">{{ score() }}</div>
+        <button
+          class="icon left"
+          type="button"
+          aria-label="Pause"
+          (pointerdown)="$event.stopPropagation()"
+          (click)="togglePause()"
+        >
+          @if (paused()) {
+            ▶
+          } @else {
+            ❚❚
           }
-          <p class="hint">Tap or press <kbd>Space</kbd> to play again</p>
+        </button>
+      }
+
+      <button
+        class="icon right"
+        type="button"
+        [attr.aria-label]="muted() ? 'Unmute' : 'Mute'"
+        (pointerdown)="$event.stopPropagation()"
+        (click)="toggleMute($event)"
+      >
+        {{ muted() ? '🔇' : '🔊' }}
+      </button>
+
+      @if (state() === 'ready') {
+        <div class="overlay top">
+          <h1 class="title">Sky<br />Flapper</h1>
+          <div class="start-info">
+            <p class="hint">Tap, click or press <kbd>Space</kbd> to flap</p>
+            @if (best() > 0) {
+              <p class="best">Best: {{ best() }}</p>
+            }
+          </div>
         </div>
-      </div>
-    }
+      }
+
+      @if (paused()) {
+        <div class="overlay dim">
+          <h2 class="panel-title">Paused</h2>
+          <p class="hint">Tap or press <kbd>Space</kbd> to resume</p>
+        </div>
+      }
+
+      @if (state() === 'over') {
+        <div class="overlay">
+          <div class="panel">
+            <h2 class="panel-title">Game Over</h2>
+            <div class="stats">
+              <div>
+                <span>Score</span><strong>{{ score() }}</strong>
+              </div>
+              <div>
+                <span>Best</span><strong>{{ best() }}</strong>
+              </div>
+            </div>
+            @if (newBest()) {
+              <p class="badge">New best!</p>
+            }
+            <p class="hint">Tap or press <kbd>Space</kbd> to play again</p>
+          </div>
+        </div>
+      }
+    </div>
   </div>
   <p class="footer">Space / ↑ / tap: flap · P: pause · M: mute</p>
 </main>

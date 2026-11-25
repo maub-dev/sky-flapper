@@ -42,11 +42,12 @@ src/styles.css                  Global page styles
 
 The code is split by responsibility. Keep it that way:
 
-- **`engine.ts`** is pure logic with no DOM, canvas, or Angular. It uses a fixed 360×640 world (`WORLD_W`, `WORLD_H`, `GROUND_H`). `step(dt)` advances the simulation and returns events (`flapped`, `scored`, `crashed`), and `input()` handles a player press. States are `'ready' | 'playing' | 'over'`.
-- **`renderer.ts`** only reads engine state and draws it. It must never change game state.
+- **`engine.ts`** is pure logic with no DOM, canvas, or Angular. The world is always 360 wide (`WORLD_W`), and its height (`worldH`) adapts to the screen between `WORLD_H_MIN` (640, 9:16) and `WORLD_H_MAX` (800, 9:20) through `resize()`. The ground (`GROUND_H`) stays at the bottom, so extra height becomes sky; use `playH` (world height minus ground), never a hard-coded 544. `step(dt)` advances the simulation and returns events (`flapped`, `scored`, `crashed`), and `input()` handles a player press. States are `'ready' | 'playing' | 'over'`. After a crash, a press restarts straight into play once `RESTART_DELAY` (0.7s) has passed; earlier presses are ignored so frantic tapping doesn't restart by accident.
+- **`renderer.ts`** only reads engine state and draws it. It must never change game state. Position scenery relative to the ground (`playH - n`), not the top, so it looks right at every world height.
 - **`app.ts`** owns the `requestAnimationFrame` loop. It runs a **fixed 120 Hz timestep** (`FIXED_DT`) with an accumulator, so physics behave the same at any refresh rate. Engine events trigger sounds and update the Angular signals behind the HTML overlays (score, game over panel, pause).
 - **HUD/UI** (score, title, game over panel, pause/mute buttons) is Angular template markup layered over the canvas, not drawn on the canvas.
-- The canvas backing store is scaled by `devicePixelRatio` (capped at 3) so it stays crisp on high-DPI screens. CSS keeps the frame at a 9:16 aspect ratio.
+- **Layout:** a `ResizeObserver` on the `.fit` container calls `layout()`, which picks a frame shape between 9:16 and 9:20 to match the available space (the frame is at most 506px wide), resizes the engine world and the canvas, and sets the frame size through the `frameW`/`frameH` signals. Phones get a full-screen frame; desktops get a centered 9:16 card. The canvas backing store is scaled by `devicePixelRatio` (capped at 3) so it stays crisp.
+- Overlay text is positioned in percentages of the frame. Anything placed below the bird (like `.start-info`) is anchored from the bottom so it stays between the bird and the ground at every height.
 
 ### Tuning
 
@@ -64,6 +65,7 @@ The best score (`sky-flapper:best`) and mute setting (`sky-flapper:muted`) are s
 - Code style is configured in Prettier (`.prettierrc`) and `.editorconfig`.
 - Keep the bundle small. Don't add runtime dependencies without a clear need; the initial bundle is about 40 kB transferred.
 - Input: pointer (mouse/touch), Space / ↑ / W / Enter to flap, P / Esc to pause, M to mute. On-canvas buttons call `stopPropagation()` on `pointerdown` so pressing them doesn't also flap.
+- Don't disable zoom in the viewport meta tag (`maximum-scale`, `user-scalable=no`), because it fails accessibility. The frame's `touch-action: none` already stops the browser from zooming or scrolling while you play.
 
 ## Deployment
 

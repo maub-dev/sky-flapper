@@ -1,4 +1,4 @@
-import { BIRD_R, GameEngine, GROUND_H, PIPE_W, PLAY_H, WORLD_H, WORLD_W } from './engine';
+import { BIRD_R, GameEngine, GROUND_H, PIPE_W, WORLD_W } from './engine';
 
 interface Cloud {
   x: number;
@@ -15,16 +15,21 @@ const CLOUDS: Cloud[] = [
 
 /** Draws the game world. All art is procedural. */
 export class Renderer {
+  /** Playable height of the frame being drawn (world height minus ground). */
+  private playH = 0;
+
   constructor(private readonly ctx: CanvasRenderingContext2D) {}
 
   draw(g: GameEngine): void {
     const c = this.ctx;
-    c.clearRect(0, 0, WORLD_W, WORLD_H);
+    this.playH = g.playH;
+    c.clearRect(0, 0, WORLD_W, g.worldH);
     this.sky();
     this.sun();
     this.clouds(g.scroll * 0.1);
-    this.hills(g.scroll * 0.25, 0.62, '#7fb8a4', 70, 0.011);
-    this.hills(g.scroll * 0.45, 0.74, '#5a9e86', 50, 0.017);
+    // Hills are anchored to the ground so extra screen height becomes sky.
+    this.hills(g.scroll * 0.25, 147, '#7fb8a4', 70, 0.011);
+    this.hills(g.scroll * 0.45, 81, '#5a9e86', 50, 0.017);
     for (const p of g.pipes) this.pillar(p.x, p.gapY, p.gap);
     this.ground(g.scroll);
     this.bird(g);
@@ -32,22 +37,23 @@ export class Renderer {
 
   private sky(): void {
     const c = this.ctx;
-    const grad = c.createLinearGradient(0, 0, 0, PLAY_H);
+    const grad = c.createLinearGradient(0, 0, 0, this.playH);
     grad.addColorStop(0, '#3b4b8f');
     grad.addColorStop(0.55, '#e88a73');
     grad.addColorStop(1, '#ffd29a');
     c.fillStyle = grad;
-    c.fillRect(0, 0, WORLD_W, PLAY_H);
+    c.fillRect(0, 0, WORLD_W, this.playH);
   }
 
   private sun(): void {
     const c = this.ctx;
-    const g = c.createRadialGradient(270, 330, 10, 270, 330, 110);
+    const y = this.playH - 214; // sits just above the hills
+    const g = c.createRadialGradient(270, y, 10, 270, y, 110);
     g.addColorStop(0, 'rgba(255,240,190,0.95)');
     g.addColorStop(0.35, 'rgba(255,220,150,0.6)');
     g.addColorStop(1, 'rgba(255,200,140,0)');
     c.fillStyle = g;
-    c.fillRect(150, 210, 240, 240);
+    c.fillRect(150, y - 120, 240, 240);
   }
 
   private clouds(offset: number): void {
@@ -65,18 +71,18 @@ export class Renderer {
     }
   }
 
-  private hills(offset: number, baseFrac: number, color: string, amp: number, freq: number): void {
+  private hills(offset: number, aboveGround: number, color: string, amp: number, freq: number): void {
     const c = this.ctx;
-    const base = PLAY_H * baseFrac + 60;
+    const base = this.playH - aboveGround;
     c.fillStyle = color;
     c.beginPath();
-    c.moveTo(0, PLAY_H);
+    c.moveTo(0, this.playH);
     for (let x = 0; x <= WORLD_W; x += 6) {
       const wx = x + offset;
       const y = base - amp * (0.5 + 0.3 * Math.sin(wx * freq) + 0.2 * Math.sin(wx * freq * 2.7 + 1.3));
       c.lineTo(x, y);
     }
-    c.lineTo(WORLD_W, PLAY_H);
+    c.lineTo(WORLD_W, this.playH);
     c.closePath();
     c.fill();
   }
@@ -119,33 +125,33 @@ export class Renderer {
     };
 
     drawSeg(-10, top + 10, top - 22);
-    drawSeg(bottom, PLAY_H - bottom, bottom);
+    drawSeg(bottom, this.playH - bottom, bottom);
   }
 
   private ground(scroll: number): void {
     const c = this.ctx;
     c.fillStyle = '#d9b47a';
-    c.fillRect(0, PLAY_H, WORLD_W, GROUND_H);
+    c.fillRect(0, this.playH, WORLD_W, GROUND_H);
     c.fillStyle = '#6fae58';
-    c.fillRect(0, PLAY_H, WORLD_W, 14);
+    c.fillRect(0, this.playH, WORLD_W, 14);
     c.fillStyle = '#4f8d3e';
     const off = scroll % 24;
     for (let x = -off; x < WORLD_W; x += 24) {
       c.beginPath();
-      c.moveTo(x, PLAY_H + 14);
-      c.lineTo(x + 12, PLAY_H + 14);
-      c.lineTo(x + 6, PLAY_H + 22);
+      c.moveTo(x, this.playH + 14);
+      c.lineTo(x + 12, this.playH + 14);
+      c.lineTo(x + 6, this.playH + 22);
       c.closePath();
       c.fill();
     }
     c.fillStyle = 'rgba(150,110,60,0.35)';
     const off2 = scroll % 40;
     for (let x = -off2; x < WORLD_W; x += 40) {
-      c.fillRect(x, PLAY_H + 40, 14, 4);
-      c.fillRect(x + 20, PLAY_H + 64, 10, 4);
+      c.fillRect(x, this.playH + 40, 14, 4);
+      c.fillRect(x + 20, this.playH + 64, 10, 4);
     }
     c.fillStyle = '#2f2540';
-    c.fillRect(0, PLAY_H, WORLD_W, 2);
+    c.fillRect(0, this.playH, WORLD_W, 2);
   }
 
   /** A round teal bird with a big eye and orange beak. */
