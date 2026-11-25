@@ -1,6 +1,6 @@
 # Sky Flapper
 
-A tap-to-flap arcade game that runs entirely in the browser, built with **Angular 21** and the HTML5 Canvas. No backend, no image or audio assets: the art is drawn procedurally and the sound effects are synthesized with the Web Audio API.
+A tap-to-flap arcade game that runs entirely in the browser, built with **Angular 22** and the HTML5 Canvas. No backend, no image or audio assets: the art is drawn procedurally and the sound effects are synthesized with the Web Audio API.
 
 ## How to play
 
